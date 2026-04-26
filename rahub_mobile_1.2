@@ -1,0 +1,685 @@
+--[[
+    ╔══════════════════════════════════════════╗
+    ║        RAHUB MOBILE v1.0                ║
+    ║        ТОЛЬКО ДЛЯ ТЕЛЕФОНОВ             ║
+    ║        XRAY FIXED                       ║
+    ╚══════════════════════════════════════════╝
+]]
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+local WS = game:GetService("Workspace")
+local CAM = WS.CurrentCamera
+local LS = game:GetService("Lighting")
+local SG = game:GetService("StarterGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LP = Players.LocalPlayer
+local State = {}
+local Conn = {}
+
+local SpeedLoop = nil
+local BhopLoop = nil
+local FlyLoop = nil
+local NoclipLoop = nil
+local HighJumpLoop = nil
+local InvisLoop = nil
+local XRayLoop = nil
+local ItemESPLoop = nil
+local SilentAimLoop = nil
+local AutoShootLoop = nil
+local HitboxLoop = nil
+
+function Notify(t, txt, d)
+    spawn(function() pcall(function() SG:SetCore("SendNotification", {Title = t or "RAHUB", Text = txt or "", Duration = d or 3}) end) end)
+end
+
+function SendMsg(msg)
+    pcall(function() game.TextChatService.TextChannels.RBXGeneral:SendAsync(msg) end)
+    pcall(function() ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All") end)
+end
+
+local function getChar() return LP.Character end
+local function getRoot() local c = getChar() return c and c:FindFirstChild("HumanoidRootPart") end
+local function getHum() local c = getChar() return c and c:FindFirstChild("Humanoid") end
+
+local function getRole(p)
+    if p == LP then return "YOU" end
+    if (p.Backpack and p.Backpack:FindFirstChild("Knife")) or (p.Character and p.Character:FindFirstChild("Knife")) then return "MURDERER" end
+    if (p.Backpack and p.Backpack:FindFirstChild("Gun")) or (p.Character and p.Character:FindFirstChild("Gun")) then return "SHERIFF" end
+    return "INNOCENT"
+end
+
+local function StopLoop(loopRef)
+    if loopRef then loopRef:Disconnect() end
+    return nil
+end
+
+local function CleanAll()
+    SpeedLoop = StopLoop(SpeedLoop)
+    BhopLoop = StopLoop(BhopLoop)
+    FlyLoop = StopLoop(FlyLoop)
+    NoclipLoop = StopLoop(NoclipLoop)
+    HighJumpLoop = StopLoop(HighJumpLoop)
+    InvisLoop = StopLoop(InvisLoop)
+    XRayLoop = StopLoop(XRayLoop)
+    ItemESPLoop = StopLoop(ItemESPLoop)
+    SilentAimLoop = StopLoop(SilentAimLoop)
+    AutoShootLoop = StopLoop(AutoShootLoop)
+    HitboxLoop = StopLoop(HitboxLoop)
+    for _, c in pairs(Conn) do pcall(function() c:Disconnect() end) end
+    Conn = {}
+    ClearPlayerESP()
+    ClearItemESP()
+    ClearNameTags()
+    ClearDistTags()
+    MakeVisible()
+    pcall(function() for _, o in ipairs(WS:GetDescendants()) do if o:IsA("BasePart") then o.LocalTransparencyModifier = 0 end end end)
+end
+
+-- ==================== ESP ====================
+function ClearPlayerESP()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then local hl = p.Character:FindFirstChild("RAHUB_PlayerESP")
+            if hl then hl:Destroy() end
+        end
+    end
+end
+
+function UpdatePlayerESP(player)
+    if player == LP then return end
+    pcall(function()
+        if player.Character then
+            local old = player.Character:FindFirstChild("RAHUB_PlayerESP"); if old then old:Destroy() end
+            local role = getRole(player)
+            local hl = Instance.new("Highlight")
+            hl.Name = "RAHUB_PlayerESP"; hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Adornee = player.Character; hl.FillTransparency = 0.4; hl.Parent = player.Character
+            if role == "MURDERER" then hl.FillColor = Color3.fromRGB(255, 0, 0); hl.OutlineColor = Color3.fromRGB(255, 255, 0)
+            elseif role == "SHERIFF" then hl.FillColor = Color3.fromRGB(0, 120, 255); hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+            else hl.FillColor = Color3.fromRGB(0, 255, 100); hl.OutlineColor = Color3.fromRGB(255, 255, 255) end
+        end
+    end)
+end
+
+function UpdateAllESP()
+    for _, p in ipairs(Players:GetPlayers()) do UpdatePlayerESP(p) end
+end
+
+function ClearItemESP()
+    for _, o in ipairs(WS:GetDescendants()) do local hl = o:FindFirstChild("RAHUB_ItemESP"); if hl then hl:Destroy() end end
+end
+
+function UpdateItemESP()
+    for _, o in ipairs(WS:GetDescendants()) do
+        if (o:IsA("Tool") or o.Name:lower():find("coin")) and not o:FindFirstChild("RAHUB_ItemESP") then
+            local hl = Instance.new("Highlight"); hl.Name = "RAHUB_ItemESP"; hl.Adornee = o
+            hl.FillTransparency = 0.3; hl.OutlineColor = Color3.fromRGB(255, 255, 255); hl.Parent = o
+            if o.Name:lower():find("gun") then hl.FillColor = Color3.fromRGB(0, 150, 255)
+            elseif o.Name:lower():find("knife") then hl.FillColor = Color3.fromRGB(255, 0, 0)
+            elseif o.Name:lower():find("coin") then hl.FillColor = Color3.fromRGB(255, 215, 0)
+            else hl.FillColor = Color3.fromRGB(255, 255, 0) end
+        end
+    end
+end
+
+function UpdateNameTags(player)
+    if player == LP then return end
+    pcall(function()
+        if player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head; local old = head:FindFirstChild("RAHUB_NameTag"); if old then old:Destroy() end
+            local role = getRole(player)
+            local clr = Color3.fromRGB(0, 255, 100)
+            if role == "MURDERER" then clr = Color3.fromRGB(255, 0, 0)
+            elseif role == "SHERIFF" then clr = Color3.fromRGB(0, 120, 255) end
+            local bg = Instance.new("BillboardGui"); bg.Name = "RAHUB_NameTag"
+            bg.Size = UDim2.new(0, 120, 0, 22); bg.StudsOffset = Vector3.new(0, 2.5, 0); bg.AlwaysOnTop = true; bg.Parent = head
+            local lbl = Instance.new("TextLabel", bg); lbl.Size = UDim2.new(1, 0, 1, 0); lbl.BackgroundTransparency = 1
+            lbl.Text = player.Name .. " [" .. role .. "]"; lbl.TextColor3 = clr; lbl.TextStrokeTransparency = 0
+            lbl.Font = Enum.Font.GothamBold; lbl.TextSize = 11
+        end
+    end)
+end
+
+function UpdateDistanceESP(player)
+    if player == LP then return end
+    pcall(function()
+        if player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = getRoot(); if not root then return end
+            local head = player.Character.Head; local old = head:FindFirstChild("RAHUB_DistTag"); if old then old:Destroy() end
+            local dist = math.floor((root.Position - player.Character.HumanoidRootPart.Position).Magnitude)
+            local bg = Instance.new("BillboardGui"); bg.Name = "RAHUB_DistTag"
+            bg.Size = UDim2.new(0, 50, 0, 18); bg.StudsOffset = Vector3.new(0, 1.5, 0); bg.AlwaysOnTop = true; bg.Parent = head
+            local lbl = Instance.new("TextLabel", bg); lbl.Size = UDim2.new(1, 0, 1, 0); lbl.BackgroundTransparency = 1
+            lbl.Text = dist .. "m"; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.Font = Enum.Font.Gotham; lbl.TextSize = 10
+        end
+    end)
+end
+
+function ClearNameTags()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("Head") then local tag = p.Character.Head:FindFirstChild("RAHUB_NameTag"); if tag then tag:Destroy() end end
+    end
+end
+
+function ClearDistTags()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("Head") then local tag = p.Character.Head:FindFirstChild("RAHUB_DistTag"); if tag then tag:Destroy() end end
+    end
+end
+
+local function MakeInvisible()
+    pcall(function()
+        local ch = getChar()
+        if ch then for _, p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 1 end end end
+    end)
+end
+
+local function MakeVisible()
+    pcall(function()
+        local ch = getChar()
+        if ch then for _, p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0 end end end
+    end)
+end
+
+-- ==================== TP ====================
+local function TPLobby()
+    local r = getRoot(); if not r then return end
+    for _, v in ipairs(WS:GetDescendants()) do
+        if v:IsA("SpawnLocation") and v:IsA("BasePart") then r.CFrame = v.CFrame + Vector3.new(0, 5, 0); Notify("TP", "Lobby", 2); return end
+    end
+    r.CFrame = CFrame.new(0, 20, 0); Notify("TP", "Lobby", 2)
+end
+
+local function doTP(cf, name)
+    local r = getRoot(); if r then r.CFrame = cf; Notify("TP", name, 2) end
+end
+
+-- ==================== SAFE FARM ====================
+local function SafeFarm()
+    Notify("Farm", "Safe farming...", 2)
+    task.spawn(function()
+        local collected = 0
+        if getChar() then for _, p in ipairs(getChar():GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
+        for _, o in ipairs(WS:GetDescendants()) do
+            if o.Name:lower():find("coin") and o:IsA("BasePart") then
+                pcall(function()
+                    local r = getRoot()
+                    if r then
+                        local target = o.Position + Vector3.new(0, 3, 0); local start = r.Position
+                        for t = 0, 1, 0.02 do local h = getHum(); if h then h.WalkSpeed = 30 end; r.CFrame = CFrame.new(start:Lerp(target, t)); task.wait(0.05) end
+                        task.wait(0.5); firetouchinterest(r, o, 0); firetouchinterest(r, o, 1); collected = collected + 1; task.wait(0.3)
+                    end
+                end)
+            end
+        end
+        if State.SpeedHack then pcall(function() local h = getHum(); if h then h.WalkSpeed = State.SpeedVal or 50 end end)
+        else pcall(function() local h = getHum(); if h then h.WalkSpeed = 16 end end) end
+        Notify("Farm", "Collected: " .. collected, 3)
+    end)
+end
+
+local function SafeAutoFarm()
+    task.spawn(function()
+        while State.AutoFarm do
+            pcall(function()
+                local r = getRoot(); if not r then return end
+                if getChar() then for _, p in ipairs(getChar():GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
+                for _, o in ipairs(WS:GetDescendants()) do
+                    if not State.AutoFarm then break end
+                    if o.Name:lower():find("coin") and o:IsA("BasePart") then
+                        local target = o.Position + Vector3.new(0, 3, 0); local start = r.Position
+                        for t = 0, 1, 0.02 do if getHum() then getHum().WalkSpeed = 30 end; r.CFrame = CFrame.new(start:Lerp(target, t)); task.wait(0.05) end
+                        if State.AutoFarm then task.wait(0.5); firetouchinterest(r, o, 0); firetouchinterest(r, o, 1); task.wait(0.3) end; break
+                    end
+                end
+            end)
+            task.wait(2)
+        end
+    end)
+end
+
+-- ==================== KILL ALL ====================
+local function KillAll()
+    local knife = LP.Backpack and LP.Backpack:FindFirstChild("Knife") or (LP.Character and LP.Character:FindFirstChild("Knife"))
+    if not knife then Notify("Error", "Need knife!", 3); return end
+    local killed = 0
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hum = p.Character:FindFirstChild("Humanoid")
+            if hum and hum.Health > 0 then
+                pcall(function()
+                    local r = getRoot()
+                    if r then r.CFrame = p.Character.HumanoidRootPart.CFrame - Vector3.new(0, 0, 2); task.wait(0.15)
+                        local h = getHum(); if h then h:EquipTool(knife) end; task.wait(0.1)
+                        for i = 1, 3 do knife:Activate(); task.wait(0.05) end; killed = killed + 1
+                    end
+                end)
+                task.wait(0.3)
+            end
+        end
+    end
+    Notify("KILL", "Killed: " .. killed, 4)
+end
+
+-- ==================== LANGUAGE ====================
+local langGui = Instance.new("ScreenGui", LP.PlayerGui)
+langGui.Name = "RAHUB_Lang"
+local langFrame = Instance.new("Frame", langGui)
+langFrame.Size = UDim2.new(0, 280, 0, 160); langFrame.Position = UDim2.new(0.5, -140, 0.5, -80)
+langFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 26); langFrame.BorderSizePixel = 0; langFrame.Draggable = true; langFrame.Active = true
+local langTitle = Instance.new("TextLabel", langFrame)
+langTitle.Size = UDim2.new(1, 0, 0, 40); langTitle.BackgroundTransparency = 1
+langTitle.Text = "RAHUB MOBILE v1.0\nSelect Language"; langTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+langTitle.Font = Enum.Font.GothamBlack; langTitle.TextSize = 14; langTitle.TextWrapped = true
+local enBtn = Instance.new("TextButton", langFrame)
+enBtn.Size = UDim2.new(0, 110, 0, 42); enBtn.Position = UDim2.new(0.5, -120, 0, 55)
+enBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 200); enBtn.BorderSizePixel = 0
+enBtn.Text = "ENGLISH"; enBtn.TextColor3 = Color3.fromRGB(255, 255, 255); enBtn.Font = Enum.Font.GothamBold; enBtn.TextSize = 14
+local ruBtn = Instance.new("TextButton", langFrame)
+ruBtn.Size = UDim2.new(0, 110, 0, 42); ruBtn.Position = UDim2.new(0.5, 10, 0, 55)
+ruBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60); ruBtn.BorderSizePixel = 0
+ruBtn.Text = "РУССКИЙ"; ruBtn.TextColor3 = Color3.fromRGB(255, 255, 255); ruBtn.Font = Enum.Font.GothamBold; ruBtn.TextSize = 14
+
+local T = {}
+local L = {
+    EN = {
+        title = "RAHUB MOBILE v1.0",
+        aim = "AIM", esp = "ESP", move = "MOVE", invis = "INVIS", tp = "TP", role = "ROLE", world = "WORLD", utils = "UTILS",
+        silentAim = "Silent Aim", fov = "FOV", autoShoot = "Auto Shoot Killer", hitbox = "Hitbox Extender",
+        playerESP = "Player ESP", nameTags = "Name Tags", distESP = "Distance ESP",
+        itemESP = "Item ESP", chams = "Chams", fullbright = "Fullbright",
+        speedHack = "Speed Hack", speedVal = "Speed", bhop = "Bhop", fly = "Fly", noclip = "Noclip",
+        lowGrav = "Low Gravity", highJump = "High Jump",
+        fullInvis = "Full Invisible", semiInvis = "Semi Invisible",
+        lobby = "Lobby", gun = "Gun", knife = "Knife", coins = "Coins",
+        mapCenter = "Map Center", murderer = "Murderer", sheriff = "Sheriff",
+        nearest = "Nearest", highPoint = "High Point", underMap = "Under Map", sky = "Sky",
+        findMurderer = "Find Murderer", findSheriff = "Find Sheriff", listRoles = "List Roles",
+        killAll = "KILL ALL (Murderer)",
+        noFog = "No Fog", noShadows = "No Shadows", xRay = "X-Ray (FIXED)", rainbowMap = "Rainbow Map",
+        chatSpam = "Chat Spam", zoomHack = "Zoom (Q/E)", autoClicker = "Auto Clicker",
+        collectCoins = "Collect Coins", autoCoinFarm = "Auto Farm", resetAll = "RESET ALL",
+        on = "ON", off = "OFF", run = "GO", loaded = "Loaded!",
+    },
+    RU = {
+        title = "RAHUB MOBILE v1.0",
+        aim = "АИМ", esp = "ЕСП", move = "ХОД", invis = "НЕВИД", tp = "ТП", role = "РОЛЬ", world = "МИР", utils = "УТИЛ",
+        silentAim = "Сайлент Аим", fov = "ФОВ", autoShoot = "Авто выстрел", hitbox = "Хитбокс",
+        playerESP = "Подсветка", nameTags = "Имена", distESP = "Дистанция",
+        itemESP = "Предметы", chams = "Чамс", fullbright = "Яркость",
+        speedHack = "Ускорение", speedVal = "Скорость", bhop = "Бхоп", fly = "Полёт", noclip = "Ноклип",
+        lowGrav = "Гравитация", highJump = "Высокий прыжок",
+        fullInvis = "Невидимость", semiInvis = "Частичная",
+        lobby = "Лобби", gun = "Пистолет", knife = "Нож", coins = "Монеты",
+        mapCenter = "Центр", murderer = "Убийца", sheriff = "Шериф",
+        nearest = "Ближайший", highPoint = "Высоко", underMap = "Под карту", sky = "Небо",
+        findMurderer = "Найти убийцу", findSheriff = "Найти шерифа", listRoles = "Список ролей",
+        killAll = "УБИТЬ ВСЕХ (Убийца)",
+        noFog = "Без тумана", noShadows = "Без теней", xRay = "Рентген (ФИКС)", rainbowMap = "Радуга",
+        chatSpam = "Чат спам", zoomHack = "Зум (Q/E)", autoClicker = "Авто кликер",
+        collectCoins = "Собрать монеты", autoCoinFarm = "Авто фарм", resetAll = "СБРОС",
+        on = "ВКЛ", off = "ВЫКЛ", run = "ПУСК", loaded = "Загружен!",
+    }
+}
+
+local function StartHub()
+    langGui:Destroy()
+    local gui = Instance.new("ScreenGui", LP.PlayerGui)
+    gui.Name = "RAHUB_MOBILE"; gui.ResetOnSpawn = false
+    
+    local uiToggle = Instance.new("TextButton", gui)
+    uiToggle.Size = UDim2.new(0, 46, 0, 46); uiToggle.Position = UDim2.new(1, -56, 0.5, -23)
+    uiToggle.BackgroundColor3 = Color3.fromRGB(30, 30, 42); uiToggle.BorderSizePixel = 0
+    uiToggle.Text = "🔽"; uiToggle.TextColor3 = Color3.fromRGB(255, 255, 255); uiToggle.Font = Enum.Font.GothamBold; uiToggle.TextSize = 22; uiToggle.ZIndex = 10
+    
+    local main = Instance.new("Frame", gui)
+    main.Size = UDim2.new(0, 510, 0, 345); main.Position = UDim2.new(0.5, -255, 0.5, -172)
+    main.BackgroundColor3 = Color3.fromRGB(20, 20, 28); main.BorderSizePixel = 0
+    main.Draggable = true; main.Active = true; main.Visible = true; main.ClipsDescendants = true
+    
+    uiToggle.MouseButton1Click:Connect(function() main.Visible = not main.Visible; uiToggle.Text = main.Visible and "🔽" or "▶" end)
+    
+    local header = Instance.new("Frame", main)
+    header.Size = UDim2.new(1, 0, 0, 34); header.BackgroundColor3 = Color3.fromRGB(14, 14, 20); header.BorderSizePixel = 0
+    local ht = Instance.new("TextLabel", header)
+    ht.Size = UDim2.new(0, 220, 1, 0); ht.Position = UDim2.new(0, 14, 0, 0); ht.BackgroundTransparency = 1
+    ht.Text = T.title; ht.TextColor3 = Color3.fromRGB(255, 100, 100); ht.Font = Enum.Font.GothamBlack; ht.TextSize = 14; ht.TextXAlignment = 0
+    local closeBtn = Instance.new("TextButton", header)
+    closeBtn.Size = UDim2.new(0, 34, 0, 34); closeBtn.Position = UDim2.new(1, -34, 0, 0)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(14, 14, 20); closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "X"; closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200); closeBtn.Font = Enum.Font.GothamBold; closeBtn.TextSize = 14
+    closeBtn.MouseButton1Click:Connect(function() CleanAll(); gui:Destroy() end)
+    
+    local tabBar = Instance.new("Frame", main)
+    tabBar.Size = UDim2.new(0, 82, 1, -34); tabBar.Position = UDim2.new(0, 0, 0, 34)
+    tabBar.BackgroundColor3 = Color3.fromRGB(14, 14, 20); tabBar.BorderSizePixel = 0
+    
+    local content = Instance.new("Frame", main)
+    content.Size = UDim2.new(1, -82, 1, -34); content.Position = UDim2.new(0, 82, 0, 34)
+    content.BackgroundColor3 = Color3.fromRGB(24, 24, 34); content.BorderSizePixel = 0; content.ClipsDescendants = true
+    
+    local tabBtns = {}; local tabFrames = {}
+    
+    local function NewTab(name, icon)
+        local btn = Instance.new("TextButton", tabBar)
+        btn.Size = UDim2.new(1, -8, 0, 31); btn.Position = UDim2.new(0, 4, 0, #tabBtns * 33 + 5)
+        btn.BackgroundColor3 = Color3.fromRGB(14, 14, 20); btn.BorderSizePixel = 0
+        btn.Text = icon .. " " .. name; btn.TextColor3 = Color3.fromRGB(170, 170, 180)
+        btn.Font = Enum.Font.GothamBold; btn.TextSize = 10; btn.TextXAlignment = 0; btn.AutoButtonColor = false
+        
+        local sc = Instance.new("ScrollingFrame", content)
+        sc.Size = UDim2.new(1, 0, 1, 0); sc.BackgroundTransparency = 1; sc.BorderSizePixel = 0
+        sc.ScrollBarThickness = 2; sc.ScrollBarImageColor3 = Color3.fromRGB(255, 70, 70)
+        sc.CanvasSize = UDim2.new(0, 0, 0, 3000); sc.Visible = #tabBtns == 0
+        local y = 8
+        
+        btn.MouseButton1Click:Connect(function()
+            for _, f in pairs(tabFrames) do f.Visible = false end
+            for _, b in pairs(tabBtns) do b.BackgroundColor3 = Color3.fromRGB(14, 14, 20); b.TextColor3 = Color3.fromRGB(170, 170, 180) end
+            sc.Visible = true; btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50); btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end)
+        if #tabBtns == 0 then btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50); btn.TextColor3 = Color3.fromRGB(255, 255, 255) end
+        table.insert(tabBtns, btn); table.insert(tabFrames, sc)
+        
+        local tab = {}
+        function tab:Section(t)
+            local l = Instance.new("TextLabel", sc)
+            l.Size = UDim2.new(1, -16, 0, 18); l.Position = UDim2.new(0, 8, 0, y); l.BackgroundTransparency = 1
+            l.Text = "— " .. t; l.TextColor3 = Color3.fromRGB(255, 130, 130); l.Font = Enum.Font.GothamBold; l.TextSize = 11; l.TextXAlignment = 0
+            y = y + 22
+        end
+        function tab:Toggle(name, key, callback, default)
+            local f = Instance.new("Frame", sc)
+            f.Size = UDim2.new(1, -16, 0, 34); f.Position = UDim2.new(0, 8, 0, y); f.BackgroundColor3 = Color3.fromRGB(32, 32, 42); f.BorderSizePixel = 0
+            local l = Instance.new("TextLabel", f)
+            l.Size = UDim2.new(0.6, 0, 1, 0); l.Position = UDim2.new(0, 10, 0, 0); l.BackgroundTransparency = 1
+            l.Text = name; l.TextColor3 = Color3.fromRGB(255, 255, 255); l.Font = Enum.Font.GothamBold; l.TextSize = 10; l.TextXAlignment = 0
+            local sw = Instance.new("TextButton", f)
+            sw.Size = UDim2.new(0, 46, 0, 20); sw.Position = UDim2.new(1, -54, 0.5, -10)
+            sw.BackgroundColor3 = default and Color3.fromRGB(0, 190, 100) or Color3.fromRGB(190, 40, 40); sw.BorderSizePixel = 0
+            sw.Text = default and T.on or T.off; sw.TextColor3 = Color3.fromRGB(255, 255, 255); sw.Font = Enum.Font.GothamBold; sw.TextSize = 9
+            if default and callback then State[key] = true; callback(true) end
+            sw.MouseButton1Click:Connect(function()
+                State[key] = not State[key]; sw.BackgroundColor3 = State[key] and Color3.fromRGB(0, 190, 100) or Color3.fromRGB(190, 40, 40)
+                sw.Text = State[key] and T.on or T.off; if callback then callback(State[key]) end
+            end)
+            y = y + 38
+        end
+        function tab:Button(name, callback)
+            local f = Instance.new("Frame", sc)
+            f.Size = UDim2.new(1, -16, 0, 34); f.Position = UDim2.new(0, 8, 0, y); f.BackgroundColor3 = Color3.fromRGB(32, 32, 42); f.BorderSizePixel = 0
+            local l = Instance.new("TextLabel", f)
+            l.Size = UDim2.new(0.5, 0, 1, 0); l.Position = UDim2.new(0, 10, 0, 0); l.BackgroundTransparency = 1
+            l.Text = name; l.TextColor3 = Color3.fromRGB(255, 255, 255); l.Font = Enum.Font.GothamBold; l.TextSize = 10; l.TextXAlignment = 0
+            local a = Instance.new("TextButton", f)
+            a.Size = UDim2.new(0, 65, 0, 22); a.Position = UDim2.new(1, -72, 0.5, -11)
+            a.BackgroundColor3 = Color3.fromRGB(200, 70, 70); a.BorderSizePixel = 0; a.Text = T.run
+            a.TextColor3 = Color3.fromRGB(255, 255, 255); a.Font = Enum.Font.GothamBold; a.TextSize = 9
+            a.MouseButton1Click:Connect(function() if callback then callback() end end)
+            y = y + 38
+        end
+        function tab:Slider(name, min, max, default, callback)
+            local f = Instance.new("Frame", sc)
+            f.Size = UDim2.new(1, -16, 0, 44); f.Position = UDim2.new(0, 8, 0, y); f.BackgroundColor3 = Color3.fromRGB(32, 32, 42); f.BorderSizePixel = 0
+            local l = Instance.new("TextLabel", f)
+            l.Size = UDim2.new(1, -16, 0, 16); l.Position = UDim2.new(0, 8, 0, 4); l.BackgroundTransparency = 1
+            l.Text = name .. ": " .. default; l.TextColor3 = Color3.fromRGB(255, 255, 255); l.Font = Enum.Font.GothamBold; l.TextSize = 10; l.TextXAlignment = 0
+            local bar = Instance.new("Frame", f)
+            bar.Size = UDim2.new(1, -16, 0, 5); bar.Position = UDim2.new(0, 8, 0, 24); bar.BackgroundColor3 = Color3.fromRGB(50, 50, 60); bar.BorderSizePixel = 0
+            local fill = Instance.new("Frame", bar)
+            fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(255, 80, 80); fill.BorderSizePixel = 0
+            local dragging = false
+            local function upd()
+                local mp = UIS:GetMouseLocation(); local bs = bar.AbsolutePosition.X; local bw = bar.AbsoluteSize.X
+                local rel = math.clamp((mp.X - bs) / bw, 0, 1); local val = math.floor(min + (max - min) * rel)
+                fill.Size = UDim2.new(rel, 0, 1, 0); l.Text = name .. ": " .. val; if callback then callback(val) end
+            end
+            local db = Instance.new("TextButton", bar)
+            db.Size = UDim2.new(1, 0, 1, 0); db.BackgroundTransparency = 1; db.Text = ""
+            db.MouseButton1Down:Connect(function() dragging = true; upd() end)
+            UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+            UIS.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then upd() end end)
+            y = y + 48
+        end
+        return tab
+    end
+    
+    -- ==================== AIM ====================
+    local aim = NewTab(T.aim, "🎯")
+    aim:Section("Aimbot (KILLER)")
+    aim:Toggle(T.silentAim, "SilentAim", function(s)
+        if s then SilentAimLoop = RS.RenderStepped:Connect(function()
+            pcall(function()
+                local r = getRoot(); if not r then return end
+                local best, bd = nil, State.FOV or 300
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LP and p.Character and getRole(p) == "MURDERER" then
+                        local h = p.Character:FindFirstChild("Head")
+                        if h then local sp, vis = CAM:WorldToViewportPoint(h.Position)
+                            if vis then local d = (Vector2.new(sp.X, sp.Y) - CAM.ViewportSize/2).Magnitude
+                                if d < bd then bd = d; best = h end end end end end
+                if best then CAM.CFrame = CFrame.lookAt(CAM.CFrame.Position, best.Position) end
+            end)
+        end) else SilentAimLoop = StopLoop(SilentAimLoop) end
+    end)
+    aim:Slider(T.fov, 50, 500, 300, function(v) State.FOV = v end)
+    aim:Section("Auto Shoot")
+    aim:Toggle(T.autoShoot, "AutoShoot", function(s)
+        if s then local last = 0; AutoShootLoop = RS.RenderStepped:Connect(function()
+            local now = tick(); if now - last < 0.5 then return end
+            pcall(function()
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LP and getRole(p) == "MURDERER" and p.Character then
+                        local hd = p.Character:FindFirstChild("Head")
+                        if hd then local sp, on = CAM:WorldToViewportPoint(hd.Position)
+                            if on then
+                                game:GetService("VirtualInputManager"):SendMouseButtonEvent(sp.X, sp.Y, 0, true, game, 1)
+                                game:GetService("VirtualInputManager"):SendMouseButtonEvent(sp.X, sp.Y, 0, false, game, 1)
+                                last = now; break end end end end end)
+        end) else AutoShootLoop = StopLoop(AutoShootLoop) end
+    end)
+    aim:Toggle(T.hitbox, "HitboxExt", function(s)
+        if s then HitboxLoop = RS.RenderStepped:Connect(function()
+            task.wait(3)
+            pcall(function() for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LP and p.Character and not p.Character:FindFirstChild("HBX") then
+                    local x = Instance.new("Part", p.Character); x.Name = "HBX"; x.Size = Vector3.new(6, 6, 6)
+                    x.Transparency = 1; x.CanCollide = false; x.Anchored = true
+                    local ic = RS.RenderStepped:Connect(function()
+                        if not x or not x.Parent then return end
+                        local hd = p.Character and p.Character:FindFirstChild("Head"); if hd then x.CFrame = hd.CFrame end
+                    end); table.insert(Conn, ic) end end end)
+        end) else HitboxLoop = StopLoop(HitboxLoop) end
+    end)
+    
+    -- ==================== ESP ====================
+    local esp = NewTab(T.esp, "👁")
+    esp:Section("Player ESP")
+    esp:Toggle(T.playerESP, "PlayerESP", function(s)
+        State.PlayerESP = s
+        if s then UpdateAllESP(); Conn[#Conn + 1] = Players.PlayerAdded:Connect(function(p) task.wait(0.3); UpdatePlayerESP(p) end)
+            task.spawn(function() while State.PlayerESP do UpdateAllESP(); task.wait(0.5) end end)
+        else ClearPlayerESP() end
+    end)
+    esp:Toggle(T.nameTags, "NameTags", function(s)
+        State.NameTags = s
+        if s then for _, p in ipairs(Players:GetPlayers()) do UpdateNameTags(p) end
+            task.spawn(function() while State.NameTags do for _, p in ipairs(Players:GetPlayers()) do UpdateNameTags(p) end; task.wait(1) end end)
+        else ClearNameTags() end
+    end)
+    esp:Toggle(T.distESP, "DistanceESP", function(s)
+        State.DistanceESP = s
+        if s then for _, p in ipairs(Players:GetPlayers()) do UpdateDistanceESP(p) end
+            task.spawn(function() while State.DistanceESP do for _, p in ipairs(Players:GetPlayers()) do UpdateDistanceESP(p) end; task.wait(0.5) end end)
+        else ClearDistTags() end
+    end)
+    esp:Section("Items")
+    esp:Toggle(T.itemESP, "ItemESP", function(s)
+        State.ItemESP = s
+        if s then ItemESPLoop = RS.RenderStepped:Connect(function()
+            task.wait(2); if not State.ItemESP then ItemESPLoop = StopLoop(ItemESPLoop); return end; UpdateItemESP() end)
+        else ItemESPLoop = StopLoop(ItemESPLoop); ClearItemESP() end
+    end)
+    esp:Toggle(T.chams, "Chams", function(s)
+        State.Chams = s
+        if s then task.spawn(function()
+            while State.Chams do pcall(function() local ch = getChar(); if ch then for _, p in ipairs(ch:GetChildren()) do if p:IsA("BasePart") then p.Color = Color3.fromHSV(tick()%5/5, 1, 1) end end end end); task.wait(0.04) end
+            pcall(function() local ch = getChar(); if ch then for _, p in ipairs(ch:GetChildren()) do if p:IsA("BasePart") then p.Color = Color3.fromRGB(255, 255, 255) end end end end) end)
+        end
+    end)
+    esp:Toggle(T.fullbright, "Fullbright", function(s)
+        if s then LS.Brightness = 3; LS.ClockTime = 12; LS.FogEnd = 1e5; LS.GlobalShadows = false
+        else LS.Brightness = 1; LS.ClockTime = 14; LS.FogEnd = 5000; LS.GlobalShadows = true end
+    end)
+    
+    -- ==================== MOVE ====================
+    local move = NewTab(T.move, "🏃")
+    move:Section("Speed")
+    move:Toggle(T.speedHack, "SpeedHack", function(s)
+        State.SpeedHack = s
+        if s then SpeedLoop = RS.RenderStepped:Connect(function()
+            pcall(function() local h = getHum(); if h and State.SpeedHack then h.WalkSpeed = State.SpeedVal or 50 end end) end)
+        else SpeedLoop = StopLoop(SpeedLoop); pcall(function() local h = getHum(); if h then h.WalkSpeed = 16 end end) end
+    end)
+    move:Slider(T.speedVal, 20, 200, 50, function(v) State.SpeedVal = v end)
+    move:Toggle(T.bhop, "Bhop", function(s)
+        if s then BhopLoop = RS.RenderStepped:Connect(function()
+            pcall(function() local h = getHum(); if h and h.MoveDirection.Magnitude > 0 and h.FloorMaterial ~= Enum.Material.Air then h.Jump = true end end) end)
+        else BhopLoop = StopLoop(BhopLoop); pcall(function() local h = getHum(); if h then h.Jump = false end end) end
+    end)
+    move:Section("Flight")
+    move:Toggle(T.fly, "Fly", function(s)
+        if s then FlyLoop = RS.RenderStepped:Connect(function()
+            pcall(function()
+                local r = getRoot(); local h = getHum(); if not r or not h then return end
+                local bv = r:FindFirstChild("FBV") or Instance.new("BodyVelocity", r); bv.Name = "FBV"; bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                local bg = r:FindFirstChild("FBG") or Instance.new("BodyGyro", r); bg.Name = "FBG"; bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+                h.PlatformStand = true; local sp = 60; local v = Vector3.zero; local cf = CAM.CFrame
+                if UIS:IsKeyDown(Enum.KeyCode.W) then v += cf.LookVector * sp end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then v -= cf.LookVector * sp end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then v -= cf.RightVector * sp end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then v += cf.RightVector * sp end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then v += Vector3.new(0, sp, 0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then v -= Vector3.new(0, sp, 0) end
+                bv.Velocity = v; bg.CFrame = cf end) end)
+        else FlyLoop = StopLoop(FlyLoop); pcall(function()
+            local r = getRoot(); if r then for _, o in ipairs(r:GetChildren()) do if o:IsA("BodyVelocity") or o:IsA("BodyGyro") then o:Destroy() end end end
+            local h = getHum(); if h then h.PlatformStand = false end end) end
+    end)
+    move:Toggle(T.noclip, "Noclip", function(s)
+        if s then NoclipLoop = RS.RenderStepped:Connect(function()
+            task.wait(0.1); pcall(function() local ch = getChar(); if ch then for _, p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end end) end)
+        else NoclipLoop = StopLoop(NoclipLoop) end
+    end)
+    move:Toggle(T.lowGrav, "LowGravity", function(s) WS.Gravity = s and 50 or 196.2 end)
+    move:Toggle(T.highJump, "HighJump", function(s)
+        if s then HighJumpLoop = RS.RenderStepped:Connect(function() pcall(function() local h = getHum(); if h then h.JumpPower = 100 end end); task.wait(0.2) end)
+        else HighJumpLoop = StopLoop(HighJumpLoop); pcall(function() local h = getHum(); if h then h.JumpPower = 50 end end) end
+    end)
+    
+    -- ==================== INVIS ====================
+    local invis = NewTab(T.invis, "👻")
+    invis:Section("Invisibility")
+    invis:Toggle(T.fullInvis, "FullInvis", function(s)
+        State.FullInvis = s
+        if s then MakeInvisible(); InvisLoop = RS.RenderStepped:Connect(function()
+            if not State.FullInvis then InvisLoop = StopLoop(InvisLoop); return end; MakeInvisible(); task.wait(0.1) end)
+        else InvisLoop = StopLoop(InvisLoop); MakeVisible() end
+    end)
+    invis:Toggle(T.semiInvis, "SemiInvis", function(s)
+        State.SemiInvis = s
+        if s then task.spawn(function() while State.SemiInvis do pcall(function() local ch = getChar(); if ch then for _, p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0.5 end end end end); task.wait(0.1) end
+            pcall(function() local ch = getChar(); if ch then for _, p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0 end end end end) end)
+        end
+    end)
+    
+    -- ==================== TP ====================
+    local tp = NewTab(T.tp, "🌀")
+    tp:Section("Locations")
+    tp:Button(T.lobby, function() TPLobby() end)
+    tp:Button(T.gun, function()
+        local r = getRoot(); if not r then return end; local best, bd = nil, 9e9
+        for _, o in ipairs(WS:GetDescendants()) do if o:IsA("Tool") and o.Name:lower():find("gun") and o:FindFirstChild("Handle") then
+            local d = (o.Handle.Position - r.Position).Magnitude; if d < bd then bd = d; best = o end end end
+        if best then doTP(best.Handle.CFrame + Vector3.new(0, 3, 0), T.gun) else Notify("TP", "Not found") end
+    end)
+    tp:Button(T.knife, function() for _, o in ipairs(WS:GetDescendants()) do if o:IsA("Tool") and o.Name:lower():find("knife") and o:FindFirstChild("Handle") then doTP(o.Handle.CFrame + Vector3.new(0, 3, 0), T.knife); return end end; Notify("TP", "Not found") end)
+    tp:Button(T.coins, function() for _, o in ipairs(WS:GetDescendants()) do if o.Name:lower():find("coin") and o:IsA("BasePart") then doTP(o.CFrame + Vector3.new(0, 2, 0), T.coins); return end end; Notify("TP", "Not found") end)
+    tp:Button(T.mapCenter, function()
+        local parts = {}; for _, o in ipairs(WS:GetDescendants()) do if o:IsA("BasePart") and o.Name:lower():find("map") then table.insert(parts, o) end end
+        if #parts > 0 then local t = Vector3.zero; for _, p in ipairs(parts) do t += p.Position end; doTP(CFrame.new(t/#parts + Vector3.new(0, 5, 0)), T.mapCenter)
+        else doTP(CFrame.new(0, 15, 0), "Default") end
+    end)
+    tp:Button(T.murderer, function() for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and getRole(p) == "MURDERER" and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then doTP(p.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0), T.murderer); return end end; Notify("TP", "Not found") end)
+    tp:Button(T.sheriff, function() for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and getRole(p) == "SHERIFF" and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then doTP(p.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0), T.sheriff); return end end; Notify("TP", "Not found") end)
+    tp:Button(T.nearest, function()
+        local best, bd = nil, 9e9; local r = getRoot(); if not r then return end
+        for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local d = (p.Character.HumanoidRootPart.Position - r.Position).Magnitude; if d < bd then bd = d; best = p end end end
+        if best then doTP(best.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0), T.nearest) end
+    end)
+    tp:Button(T.highPoint, function() local r = getRoot(); if r then doTP(r.CFrame + Vector3.new(0, 100, 0), T.sky) end end)
+    tp:Button(T.underMap, function() local r = getRoot(); if r then doTP(r.CFrame - Vector3.new(0, 50, 0), T.underMap) end end)
+    tp:Button(T.sky, function() local r = getRoot(); if r then doTP(r.CFrame + Vector3.new(0, 100, 0), T.sky) end end)
+    
+    -- ==================== ROLE ====================
+    local role = NewTab(T.role, "🎭")
+    role:Section("Detection")
+    role:Button(T.findMurderer, function()
+        for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and getRole(p) == "MURDERER" then Notify("MURDERER", p.Name, 5)
+            if p.Character then local hl = Instance.new("Highlight", p.Character); hl.FillColor = Color3.fromRGB(255, 0, 0); hl.FillTransparency = 0.2; hl.Adornee = p.Character
+            task.delay(8, function() pcall(function() hl:Destroy() end) end) end; return end end; Notify("Search", "Not found") end)
+    role:Button(T.findSheriff, function() for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and getRole(p) == "SHERIFF" then Notify("SHERIFF", p.Name, 5); return end end; Notify("Search", "Not found") end)
+    role:Button(T.listRoles, function() local t = {}; for _, p in ipairs(Players:GetPlayers()) do table.insert(t, p.Name .. ": " .. getRole(p)) end; Notify("Roles", table.concat(t, "\n"), 8) end)
+    role:Section("KILL ALL")
+    role:Button("💀 " .. T.killAll, function() KillAll() end)
+    
+    -- ==================== WORLD ====================
+    local world = NewTab(T.world, "🌍")
+    world:Section("Visual")
+    world:Toggle(T.fullbright, "Fullbright", function(s)
+        if s then LS.Brightness = 3; LS.ClockTime = 12; LS.FogEnd = 1e5; LS.GlobalShadows = false
+        else LS.Brightness = 1; LS.ClockTime = 14; LS.FogEnd = 5000; LS.GlobalShadows = true end
+    end)
+    world:Toggle(T.noFog, "NoFog", function(s) LS.FogEnd = s and 1e5 or 5000 end)
+    world:Toggle(T.noShadows, "NoShadows", function(s) LS.GlobalShadows = not s end)
+    world:Toggle(T.xRay, "XRay", function(s)
+        State.XRay = s
+        if s then XRayLoop = RS.RenderStepped:Connect(function()
+            task.wait(0.4); if not State.XRay then pcall(function() for _, o in ipairs(WS:GetDescendants()) do if o:IsA("BasePart") then o.LocalTransparencyModifier = 0 end end end); XRayLoop = StopLoop(XRayLoop); return end
+            pcall(function() for _, o in ipairs(WS:GetDescendants()) do if o:IsA("BasePart") and o.Transparency < 0.5 then o.LocalTransparencyModifier = 0.7 end end end) end)
+        else XRayLoop = StopLoop(XRayLoop); pcall(function() for _, o in ipairs(WS:GetDescendants()) do if o:IsA("BasePart") then o.LocalTransparencyModifier = 0 end end end) end
+    end)
+    world:Toggle(T.rainbowMap, "Rainbow", function(s)
+        State.Rainbow = s
+        if s then task.spawn(function() while State.Rainbow do pcall(function() LS.Ambient = Color3.fromHSV(tick()%10/10, 0.5, 0.8) end); task.wait(0.08) end; LS.Ambient = Color3.fromRGB(0, 0, 0) end)
+        else LS.Ambient = Color3.fromRGB(0, 0, 0) end
+    end)
+    
+    -- ==================== UTILS ====================
+    local utils = NewTab(T.utils, "🔧")
+    utils:Section("Farm (Safe)")
+    utils:Button(T.collectCoins, function() SafeFarm() end)
+    utils:Toggle(T.autoCoinFarm, "AutoFarm", function(s) if s then SafeAutoFarm() end end)
+    utils:Section("Chat (10s)")
+    utils:Toggle(T.chatSpam, "ChatSpam", function(s)
+        if s then local msgs = {"RAHUB MOBILE! 🔥", "GET REKT! 💀", "EZ WIN! 👑"}; local idx = 1
+            task.spawn(function() while State.ChatSpam do SendMsg(msgs[idx] or "RAHUB!"); idx = idx >= #msgs and 1 or idx + 1; task.wait(10) end end) end
+    end)
+    utils:Section("Reset")
+    utils:Button(T.resetAll, function()
+        for k, _ in pairs(State) do if type(State[k]) == "boolean" then State[k] = false end end
+        CleanAll(); LS.Brightness = 1; LS.ClockTime = 14; LS.FogEnd = 5000; LS.GlobalShadows = true; WS.Gravity = 196.2; CAM.FieldOfView = 70
+        pcall(function() local h = getHum(); if h then h.WalkSpeed = 16; h.JumpPower = 50; h.PlatformStand = false end
+            local ch = getChar(); if ch then for _, p in ipairs(ch:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0; p.CanCollide = true end end end end)
+        Notify("RESET", "Done!")
+    end)
+    
+    table.insert(Conn, LP.CharacterAdded:Connect(function(c) task.wait(0.5); if State.SpeedHack then pcall(function() c:WaitForChild("Humanoid").WalkSpeed = State.SpeedVal or 50 end) end; if State.FullInvis then task.wait(0.3); MakeInvisible() end end))
+    Notify(T.title, T.loaded, 5)
+end
+
+enBtn.MouseButton1Click:Connect(function() T = L.EN; StartHub() end)
+ruBtn.MouseButton1Click:Connect(function() T = L.RU; StartHub() end)
